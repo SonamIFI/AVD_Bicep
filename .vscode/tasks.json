@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Validate AVD Bicep",
+			"type": "shell",
+			"command": "az bicep build --file main.bicep",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Test FSLogix installation",
+			"type": "shell",
+			"command": "./Scripts/Test-FSLogixInstallation.ps1",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		}
+	]
+}

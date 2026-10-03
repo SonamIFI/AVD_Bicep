@@ -1,0 +1,2235 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.47.16.16243",
+      "templateHash": "17673824360190342069"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "Central India",
+      "metadata": {
+        "description": "Azure region for the Data Engineering AVD environment."
+      }
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the resource group for the AVD environment."
+      }
+    },
+    "workspaceName": {
+      "type": "string",
+      "defaultValue": "DataEngineering",
+      "metadata": {
+        "description": "20MED workspace name."
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Local administrator username for the session host."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Local administrator password for the session host."
+      }
+    },
+    "avdUserGroupObjectId": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36,
+      "metadata": {
+        "description": "Entra security group object ID; deploy.ps1 can create the group."
+      }
+    },
+    "avdServicePrincipalObjectId": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36
+    },
+    "registrationToken": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Temporary AVD host pool registration token."
+      }
+    },
+    "deploySessionHosts": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Deploy AVD session hosts."
+      }
+    },
+    "environment": {
+      "type": "string",
+      "defaultValue": "uat",
+      "allowedValues": [
+        "uat",
+        "prod"
+      ],
+      "metadata": {
+        "description": "Deployment environment."
+      }
+    },
+    "maxAuthorizedUsers": {
+      "type": "int",
+      "defaultValue": 10,
+      "metadata": {
+        "description": "Maximum number of authorized users for this workspace."
+      }
+    },
+    "maxSessionsPerHost": {
+      "type": "int",
+      "defaultValue": 3,
+      "metadata": {
+        "description": "Maximum number of concurrent sessions allowed per session host."
+      }
+    },
+    "approvedFqdns": {
+      "type": "array",
+      "defaultValue": [],
+      "metadata": {
+        "description": "Approved FQDNs allowed for AVD internet egress through Azure Firewall."
+      }
+    },
+    "ntpServerIpAddresses": {
+      "type": "array",
+      "defaultValue": [],
+      "metadata": {
+        "description": "Approved NTP server IP addresses; Basic cannot resolve NTP FQDN rules."
+      }
+    },
+    "rdpShortpathDestinationCidrs": {
+      "type": "array",
+      "defaultValue": [],
+      "metadata": {
+        "description": "Approved remote client IPs/CIDRs for direct RDP Shortpath UDP; empty disables direct Shortpath."
+      }
+    },
+    "sessionHostCount": {
+      "type": "int",
+      "defaultValue": 1,
+      "metadata": {
+        "description": "Number of initial AVD session hosts."
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_E4s_v5",
+      "metadata": {
+        "description": "VM size for the AVD session host."
+      }
+    },
+    "fileShareQuotaGiB": {
+      "type": "int",
+      "defaultValue": 500,
+      "metadata": {
+        "description": "FSLogix file share quota in GiB."
+      }
+    },
+    "retentionInDays": {
+      "type": "int",
+      "defaultValue": 30,
+      "metadata": {
+        "description": "Log Analytics retention in days."
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {
+        "Environment": "[parameters('environment')]",
+        "Workspace": "[parameters('workspaceName')]",
+        "ManagedBy": "Bicep",
+        "Owner": "IFI Tech"
+      },
+      "metadata": {
+        "description": "Common resource tags applied to all resources."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2022-09-01",
+      "name": "[parameters('resourceGroupName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-keyvault', parameters('workspaceName'))]",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "workspaceName": {
+            "value": "[parameters('workspaceName')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.47.16.16243",
+              "templateHash": "8362173140619927792"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for Key Vault."
+              }
+            },
+            "workspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "20MED workspace name."
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "Deployment environment."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Common resource tags."
+              }
+            }
+          },
+          "variables": {
+            "keyVaultName": "[format('kv20-{0}-{1}', toLower(parameters('environment')), toLower(parameters('workspaceName')))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.KeyVault/vaults",
+              "apiVersion": "2024-11-01",
+              "name": "[variables('keyVaultName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "tenantId": "[subscription().tenantId]",
+                "enableRbacAuthorization": true,
+                "enabledForDeployment": false,
+                "enabledForDiskEncryption": false,
+                "enabledForTemplateDeployment": false,
+                "publicNetworkAccess": "Enabled",
+                "sku": {
+                  "family": "A",
+                  "name": "standard"
+                },
+                "softDeleteRetentionInDays": 90,
+                "enablePurgeProtection": true
+              }
+            }
+          ],
+          "outputs": {
+            "keyVaultId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+            },
+            "keyVaultName": {
+              "type": "string",
+              "value": "[variables('keyVaultName')]"
+            },
+            "keyVaultUri": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName')), '2024-11-01').vaultUri]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-networking', parameters('workspaceName'))]",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "workspaceName": {
+            "value": "[parameters('workspaceName')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.47.16.16243",
+              "templateHash": "10837343674806197253"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the networking resources."
+              }
+            },
+            "workspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "20MED workspace name."
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "Deployment environment."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Common resource tags."
+              }
+            },
+            "vnetAddressPrefix": {
+              "type": "string",
+              "defaultValue": "10.10.0.0/16",
+              "metadata": {
+                "description": "Virtual network address space."
+              }
+            },
+            "avdSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "10.10.1.0/24",
+              "metadata": {
+                "description": "AVD session host subnet address prefix."
+              }
+            },
+            "firewallSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "10.10.2.0/24",
+              "metadata": {
+                "description": "Azure Firewall subnet address prefix."
+              }
+            },
+            "firewallManagementSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "10.10.5.0/26",
+              "metadata": {
+                "description": "Azure Firewall management subnet address prefix."
+              }
+            },
+            "managementSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "10.10.3.0/24",
+              "metadata": {
+                "description": "Management subnet address prefix."
+              }
+            },
+            "privateEndpointSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "10.10.4.0/24",
+              "metadata": {
+                "description": "Private Endpoint subnet address prefix."
+              }
+            }
+          },
+          "variables": {
+            "vnetName": "[format('vnet-20med-avd-{0}-{1}', toLower(parameters('environment')), toLower(parameters('workspaceName')))]",
+            "avdSubnetName": "[format('snet-avd-{0}', toLower(parameters('workspaceName')))]",
+            "firewallSubnetName": "AzureFirewallSubnet",
+            "firewallManagementSubnetName": "AzureFirewallManagementSubnet",
+            "managementSubnetName": "[format('snet-management-{0}', toLower(parameters('workspaceName')))]",
+            "privateEndpointSubnetName": "[format('snet-private-endpoint-{0}', toLower(parameters('workspaceName')))]",
+            "avdNsgName": "[format('nsg-avd-{0}', toLower(parameters('workspaceName')))]",
+            "managementNsgName": "[format('nsg-management-{0}', toLower(parameters('workspaceName')))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[variables('avdNsgName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "AllowAzureLoadBalancer",
+                    "properties": {
+                      "priority": 100,
+                      "direction": "Inbound",
+                      "access": "Allow",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "*",
+                      "sourceAddressPrefix": "AzureLoadBalancer",
+                      "destinationAddressPrefix": "*"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[variables('managementNsgName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "securityRules": []
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2024-05-01",
+              "name": "[variables('vnetName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('vnetAddressPrefix')]"
+                  ]
+                },
+                "privateEndpointVNetPolicies": "Disabled",
+                "subnets": [
+                  {
+                    "name": "[variables('avdSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('avdSubnetPrefix')]",
+                      "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('avdNsgName'))]"
+                      }
+                    }
+                  },
+                  {
+                    "name": "[variables('firewallSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('firewallSubnetPrefix')]"
+                    }
+                  },
+                  {
+                    "name": "[variables('firewallManagementSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('firewallManagementSubnetPrefix')]"
+                    }
+                  },
+                  {
+                    "name": "[variables('managementSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('managementSubnetPrefix')]",
+                      "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('managementNsgName'))]"
+                      }
+                    }
+                  },
+                  {
+                    "name": "[variables('privateEndpointSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('privateEndpointSubnetPrefix')]",
+                      "privateEndpointNetworkPolicies": "Disabled"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', variables('avdNsgName'))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', variables('managementNsgName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vnetName": {
+              "type": "string",
+              "value": "[variables('vnetName')]"
+            },
+            "vnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+            },
+            "avdSubnetName": {
+              "type": "string",
+              "value": "[variables('avdSubnetName')]"
+            },
+            "avdNsgId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('avdNsgName'))]"
+            },
+            "avdSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('avdSubnetName'))]"
+            },
+            "firewallSubnetName": {
+              "type": "string",
+              "value": "[variables('firewallSubnetName')]"
+            },
+            "firewallSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('firewallSubnetName'))]"
+            },
+            "firewallManagementSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('firewallManagementSubnetName'))]"
+            },
+            "managementSubnetName": {
+              "type": "string",
+              "value": "[variables('managementSubnetName')]"
+            },
+            "managementSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('managementSubnetName'))]"
+            },
+            "privateEndpointSubnetName": {
+              "type": "string",
+              "value": "[variables('privateEndpointSubnetName')]"
+            },
+            "privateEndpointSubnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('privateEndpointSubnetName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-firewall', parameters('workspaceName'))]",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "workspaceName": {
+            "value": "[parameters('workspaceName')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "firewallSubnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.firewallSubnetId.value]"
+          },
+          "firewallManagementSubnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.firewallManagementSubnetId.value]"
+          },
+          "avdSubnetPrefix": {
+            "value": "10.10.1.0/24"
+          },
+          "approvedFqdns": {
+            "value": "[parameters('approvedFqdns')]"
+          },
+          "ntpServerIpAddresses": {
+            "value": "[parameters('ntpServerIpAddresses')]"
+          },
+          "rdpShortpathDestinationCidrs": {
+            "value": "[parameters('rdpShortpathDestinationCidrs')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.47.16.16243",
+              "templateHash": "17748280263707983989"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for Azure Firewall resources."
+              }
+            },
+            "workspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "20MED workspace name."
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "Deployment environment."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Common resource tags."
+              }
+            },
+            "firewallSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure Firewall subnet resource ID."
+              }
+            },
+            "firewallManagementSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure Firewall management subnet resource ID."
+              }
+            },
+            "avdSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "AVD subnet address prefix used as the firewall rule source."
+              }
+            },
+            "approvedFqdns": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Approved FQDN destinations for HTTPS/HTTP access from the AVD subnet."
+              }
+            },
+            "ntpServerIpAddresses": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Approved NTP server IP addresses. Basic cannot filter NTP by FQDN."
+              }
+            },
+            "rdpShortpathDestinationCidrs": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Approved client IPs or CIDRs for direct RDP Shortpath UDP egress. Empty disables direct Shortpath rules."
+              }
+            }
+          },
+          "variables": {
+            "firewallName": "[format('afw-20med-{0}-{1}', toLower(parameters('environment')), toLower(parameters('workspaceName')))]",
+            "firewallPolicyName": "[format('afwp-20med-{0}-{1}-basic', toLower(parameters('environment')), toLower(parameters('workspaceName')))]",
+            "publicIpName": "[format('pip-afw-20med-{0}-{1}', toLower(parameters('environment')), toLower(parameters('workspaceName')))]",
+            "managementPublicIpName": "[format('pip-afw-mgmt-20med-{0}-{1}', toLower(parameters('environment')), toLower(parameters('workspaceName')))]",
+            "ruleCollectionGroupName": "rcg-20med-avd-egress"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2024-05-01",
+              "name": "[variables('publicIpName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard",
+                "tier": "Regional"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "publicIPAddressVersion": "IPv4",
+                "ddosSettings": {
+                  "protectionMode": "VirtualNetworkInherited"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2024-05-01",
+              "name": "[variables('managementPublicIpName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard",
+                "tier": "Regional"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "publicIPAddressVersion": "IPv4",
+                "ddosSettings": {
+                  "protectionMode": "VirtualNetworkInherited"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Network/firewallPolicies",
+              "apiVersion": "2024-05-01",
+              "name": "[variables('firewallPolicyName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "threatIntelMode": "Alert",
+                "sku": {
+                  "tier": "Basic"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Network/firewallPolicies/ruleCollectionGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', variables('firewallPolicyName'), variables('ruleCollectionGroupName'))]",
+              "properties": {
+                "priority": 100,
+                "ruleCollections": [
+                  {
+                    "name": "Allow-Windows-Activation",
+                    "priority": 100,
+                    "ruleCollectionType": "FirewallPolicyFilterRuleCollection",
+                    "action": {
+                      "type": "Allow"
+                    },
+                    "rules": [
+                      {
+                        "name": "Allow-Azure-KMS",
+                        "ruleType": "NetworkRule",
+                        "sourceAddresses": [
+                          "[parameters('avdSubnetPrefix')]"
+                        ],
+                        "ipProtocols": [
+                          "TCP"
+                        ],
+                        "destinationAddresses": [
+                          "20.118.99.224",
+                          "40.83.235.53",
+                          "23.102.135.246"
+                        ],
+                        "destinationPorts": [
+                          "1688"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Allow-AVD-Network-Dependencies",
+                    "priority": 105,
+                    "ruleCollectionType": "FirewallPolicyFilterRuleCollection",
+                    "action": {
+                      "type": "Allow"
+                    },
+                    "rules": "[concat(createArray(createObject('name', 'Allow-AVD-Service-Traffic', 'ruleType', 'NetworkRule', 'sourceAddresses', createArray(parameters('avdSubnetPrefix')), 'ipProtocols', createArray('TCP'), 'destinationAddresses', createArray('WindowsVirtualDesktop'), 'destinationPorts', createArray('443')), createObject('name', 'Allow-Azure-Monitor', 'ruleType', 'NetworkRule', 'sourceAddresses', createArray(parameters('avdSubnetPrefix')), 'ipProtocols', createArray('TCP'), 'destinationAddresses', createArray('AzureMonitor'), 'destinationPorts', createArray('443')), createObject('name', 'Allow-AVD-Relayed-Shortpath', 'ruleType', 'NetworkRule', 'sourceAddresses', createArray(parameters('avdSubnetPrefix')), 'ipProtocols', createArray('UDP'), 'destinationAddresses', createArray('WindowsVirtualDesktop'), 'destinationPorts', createArray('3478'))), if(not(empty(parameters('ntpServerIpAddresses'))), createArray(createObject('name', 'Allow-Approved-NTP', 'ruleType', 'NetworkRule', 'sourceAddresses', createArray(parameters('avdSubnetPrefix')), 'ipProtocols', createArray('UDP'), 'destinationAddresses', parameters('ntpServerIpAddresses'), 'destinationPorts', createArray('123'))), createArray()), if(not(empty(parameters('rdpShortpathDestinationCidrs'))), createArray(createObject('name', 'Allow-Approved-Direct-Shortpath', 'ruleType', 'NetworkRule', 'sourceAddresses', createArray(parameters('avdSubnetPrefix')), 'ipProtocols', createArray('UDP'), 'destinationAddresses', parameters('rdpShortpathDestinationCidrs'), 'destinationPorts', createArray('49152-65535'))), createArray()))]"
+                  },
+                  {
+                    "name": "Allow-Approved-HTTPS",
+                    "priority": 110,
+                    "ruleCollectionType": "FirewallPolicyFilterRuleCollection",
+                    "action": {
+                      "type": "Allow"
+                    },
+                    "rules": "[concat(createArray(createObject('name', 'Allow-FSLogix-Installer', 'ruleType', 'ApplicationRule', 'sourceAddresses', createArray(parameters('avdSubnetPrefix')), 'protocols', createArray(createObject('protocolType', 'Https', 'port', 443)), 'targetFqdns', createArray('aka.ms', 'download.microsoft.com')), createObject('name', 'Allow-Certificate-Checks', 'ruleType', 'ApplicationRule', 'sourceAddresses', createArray(parameters('avdSubnetPrefix')), 'protocols', createArray(createObject('protocolType', 'Http', 'port', 80)), 'targetFqdns', createArray('oneocsp.microsoft.com', 'www.microsoft.com', '*.aikcertaia.microsoft.com', format('azcsprodeusaikpublish.blob.{0}', environment().suffixes.storage), '*.microsoftaik.azure.net', 'ctldl.windowsupdate.com', '*.digicert.com')), createObject('name', 'Allow-AVD-Agent-Dependencies', 'ruleType', 'ApplicationRule', 'sourceAddresses', createArray(parameters('avdSubnetPrefix')), 'protocols', createArray(createObject('protocolType', 'Https', 'port', 443)), 'targetFqdns', createArray('catalogartifact.azureedge.net', format('*.prod.warm.ingest.monitor.{0}', environment().suffixes.storage), format('gcs.prod.monitoring.{0}', environment().suffixes.storage), format('mrsglobalsteus2prod.blob.{0}', environment().suffixes.storage), '*.service.windows.cloud.microsoft', '*.windows.cloud.microsoft', '*.windows.static.microsoft')), createObject('name', 'Allow-Windows-Virtual-Desktop', 'description', 'Allow required Azure Virtual Desktop service endpoints.', 'ruleType', 'ApplicationRule', 'sourceAddresses', createArray(parameters('avdSubnetPrefix')), 'protocols', createArray(createObject('protocolType', 'Https', 'port', 443)), 'fqdnTags', createArray('WindowsVirtualDesktop')), createObject('name', 'Allow-AVD-DSC-Artifacts', 'description', 'Allow the AVD DSC extension package download.', 'ruleType', 'ApplicationRule', 'sourceAddresses', createArray(parameters('avdSubnetPrefix')), 'protocols', createArray(createObject('protocolType', 'Https', 'port', 443)), 'targetFqdns', createArray('wvdportalstorageblob.blob.core.windows.net')), createObject('name', 'Allow-Entra-Device-Registration', 'description', 'Allow Microsoft Entra join and VM sign-in endpoints.', 'ruleType', 'ApplicationRule', 'sourceAddresses', createArray(parameters('avdSubnetPrefix')), 'protocols', createArray(createObject('protocolType', 'Https', 'port', 443)), 'targetFqdns', createArray('login.microsoftonline.com', format('device.{0}', replace(replace(environment().authentication.loginEndpoint, 'https://', ''), '/', '')), 'login.windows.net', 'enterpriseregistration.windows.net', 'pas.windows.net'))), if(not(empty(parameters('approvedFqdns'))), createArray(createObject('name', 'Allow-Approved-FQDNs', 'description', 'Allow only explicitly approved HTTP/HTTPS destinations from the AVD subnet.', 'ruleType', 'ApplicationRule', 'sourceAddresses', createArray(parameters('avdSubnetPrefix')), 'protocols', createArray(createObject('protocolType', 'Https', 'port', 443), createObject('protocolType', 'Http', 'port', 80)), 'targetFqdns', parameters('approvedFqdns'))), createArray()))]"
+                  },
+                  {
+                    "name": "Allow-Windows-Operational-Services",
+                    "priority": 120,
+                    "ruleCollectionType": "FirewallPolicyFilterRuleCollection",
+                    "action": {
+                      "type": "Allow"
+                    },
+                    "rules": [
+                      {
+                        "name": "Allow-Windows-Update-And-Diagnostics",
+                        "ruleType": "ApplicationRule",
+                        "sourceAddresses": [
+                          "[parameters('avdSubnetPrefix')]"
+                        ],
+                        "protocols": [
+                          {
+                            "protocolType": "Https",
+                            "port": 443
+                          }
+                        ],
+                        "fqdnTags": [
+                          "WindowsUpdate",
+                          "WindowsDiagnostics"
+                        ]
+                      },
+                      {
+                        "name": "Allow-Windows-Connectivity-Check",
+                        "ruleType": "ApplicationRule",
+                        "sourceAddresses": [
+                          "[parameters('avdSubnetPrefix')]"
+                        ],
+                        "protocols": [
+                          {
+                            "protocolType": "Http",
+                            "port": 80
+                          }
+                        ],
+                        "targetFqdns": [
+                          "www.msftconnecttest.com"
+                        ]
+                      },
+                      {
+                        "name": "Allow-Telemetry-OneDrive-And-DNS-HTTPS",
+                        "ruleType": "ApplicationRule",
+                        "sourceAddresses": [
+                          "[parameters('avdSubnetPrefix')]"
+                        ],
+                        "protocols": [
+                          {
+                            "protocolType": "Https",
+                            "port": 443
+                          }
+                        ],
+                        "targetFqdns": [
+                          "*.events.data.microsoft.com",
+                          "*.prod.do.dsp.mp.microsoft.com",
+                          "*.sfx.ms",
+                          "*.digicert.com",
+                          "*.azure-dns.com",
+                          "*.azure-dns.net"
+                        ]
+                      },
+                      {
+                        "name": "Allow-Service-Bus-Diagnostics",
+                        "ruleType": "ApplicationRule",
+                        "sourceAddresses": [
+                          "[parameters('avdSubnetPrefix')]"
+                        ],
+                        "protocols": [
+                          {
+                            "protocolType": "Https",
+                            "port": 443
+                          }
+                        ],
+                        "targetFqdns": [
+                          "*.servicebus.windows.net"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/firewallPolicies', variables('firewallPolicyName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/azureFirewalls",
+              "apiVersion": "2024-05-01",
+              "name": "[variables('firewallName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "name": "AZFW_VNet",
+                  "tier": "Basic"
+                },
+                "firewallPolicy": {
+                  "id": "[resourceId('Microsoft.Network/firewallPolicies', variables('firewallPolicyName'))]"
+                },
+                "ipConfigurations": [
+                  {
+                    "name": "firewall-ipconfig",
+                    "properties": {
+                      "subnet": {
+                        "id": "[parameters('firewallSubnetId')]"
+                      },
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+                      }
+                    }
+                  }
+                ],
+                "managementIpConfiguration": {
+                  "name": "firewall-management-ipconfig",
+                  "properties": {
+                    "subnet": {
+                      "id": "[parameters('firewallManagementSubnetId')]"
+                    },
+                    "publicIPAddress": {
+                      "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('managementPublicIpName'))]"
+                    }
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('managementPublicIpName'))]",
+                "[resourceId('Microsoft.Network/firewallPolicies', variables('firewallPolicyName'))]",
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]",
+                "[resourceId('Microsoft.Network/firewallPolicies/ruleCollectionGroups', variables('firewallPolicyName'), variables('ruleCollectionGroupName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "firewallId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/azureFirewalls', variables('firewallName'))]"
+            },
+            "firewallName": {
+              "type": "string",
+              "value": "[variables('firewallName')]"
+            },
+            "firewallPolicyId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/firewallPolicies', variables('firewallPolicyName'))]"
+            },
+            "firewallPolicyName": {
+              "type": "string",
+              "value": "[variables('firewallPolicyName')]"
+            },
+            "firewallPublicIpId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+            },
+            "firewallPublicIpAddress": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName')), '2024-05-01').ipAddress]"
+            },
+            "firewallPrivateIp": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/azureFirewalls', variables('firewallName')), '2024-05-01').ipConfigurations[0].properties.privateIPAddress]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-routing', parameters('workspaceName'))]",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "workspaceName": {
+            "value": "[parameters('workspaceName')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "vnetName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.vnetName.value]"
+          },
+          "avdSubnetName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.avdSubnetName.value]"
+          },
+          "avdSubnetPrefix": {
+            "value": "10.10.1.0/24"
+          },
+          "avdNsgId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.avdNsgId.value]"
+          },
+          "firewallPrivateIp": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-firewall', parameters('workspaceName'))), '2025-04-01').outputs.firewallPrivateIp.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.47.16.16243",
+              "templateHash": "16704559359982701495"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the route table."
+              }
+            },
+            "workspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "20MED workspace name."
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "Deployment environment."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Common resource tags."
+              }
+            },
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the existing virtual network."
+              }
+            },
+            "avdSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the AVD subnet."
+              }
+            },
+            "avdSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Address prefix of the AVD subnet."
+              }
+            },
+            "avdNsgId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the AVD subnet network security group."
+              }
+            },
+            "firewallPrivateIp": {
+              "type": "string",
+              "metadata": {
+                "description": "Private IP address of Azure Firewall."
+              }
+            }
+          },
+          "variables": {
+            "routeTableName": "[format('rt-20med-avd-{0}-{1}', toLower(parameters('environment')), toLower(parameters('workspaceName')))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/routeTables",
+              "apiVersion": "2025-09-01",
+              "name": "[variables('routeTableName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "disableBgpRoutePropagation": false,
+                "routes": [
+                  {
+                    "name": "DefaultRouteToAzureFirewall",
+                    "properties": {
+                      "addressPrefix": "0.0.0.0/0",
+                      "nextHopType": "VirtualAppliance",
+                      "nextHopIpAddress": "[parameters('firewallPrivateIp')]"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', parameters('vnetName'), parameters('avdSubnetName'))]",
+              "properties": {
+                "addressPrefix": "[parameters('avdSubnetPrefix')]",
+                "networkSecurityGroup": {
+                  "id": "[parameters('avdNsgId')]"
+                },
+                "routeTable": {
+                  "id": "[resourceId('Microsoft.Network/routeTables', variables('routeTableName'))]"
+                },
+                "privateEndpointNetworkPolicies": "Disabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/routeTables', variables('routeTableName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "routeTableId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/routeTables', variables('routeTableName'))]"
+            },
+            "routeTableName": {
+              "type": "string",
+              "value": "[variables('routeTableName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-firewall', parameters('workspaceName')))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-avd', parameters('workspaceName'))]",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "workspaceName": {
+            "value": "[parameters('workspaceName')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "maxAuthorizedUsers": {
+            "value": "[parameters('maxAuthorizedUsers')]"
+          },
+          "maxSessionsPerHost": {
+            "value": "[parameters('maxSessionsPerHost')]"
+          },
+          "createRegistrationToken": {
+            "value": "[parameters('deploySessionHosts')]"
+          },
+          "avdUserGroupObjectId": {
+            "value": "[parameters('avdUserGroupObjectId')]"
+          },
+          "avdServicePrincipalObjectId": {
+            "value": "[parameters('avdServicePrincipalObjectId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.47.16.16243",
+              "templateHash": "7936764576280688419"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for AVD resources."
+              }
+            },
+            "workspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "20MED workspace name."
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "Deployment environment."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Common resource tags."
+              }
+            },
+            "avdUserGroupObjectId": {
+              "type": "string",
+              "metadata": {
+                "description": "Entra security group object ID authorized to use the desktop."
+              }
+            },
+            "avdServicePrincipalObjectId": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure Virtual Desktop enterprise application service principal object ID."
+              }
+            },
+            "maxAuthorizedUsers": {
+              "type": "int",
+              "defaultValue": 10,
+              "metadata": {
+                "description": "Planned user count; informational only, not an access limit."
+              }
+            },
+            "maxSessionsPerHost": {
+              "type": "int",
+              "defaultValue": 3,
+              "metadata": {
+                "description": "Maximum number of concurrent sessions allowed per session host."
+              }
+            },
+            "createRegistrationToken": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Generate a registration token when deploying session hosts."
+              }
+            },
+            "registrationTokenExpiration": {
+              "type": "string",
+              "defaultValue": "[dateTimeAdd(utcNow(), 'P1D')]",
+              "metadata": {
+                "description": "Registration token expiry in UTC; refreshed on each deployment."
+              }
+            },
+            "hostPoolName": {
+              "type": "string",
+              "defaultValue": "[format('hp-20med-{0}-{1}', toLower(parameters('environment')), toLower(parameters('workspaceName')))]",
+              "metadata": {
+                "description": "Friendly name of the AVD host pool."
+              }
+            },
+            "applicationGroupName": {
+              "type": "string",
+              "defaultValue": "[format('dag-20med-{0}-{1}', toLower(parameters('environment')), toLower(parameters('workspaceName')))]",
+              "metadata": {
+                "description": "Friendly name of the AVD application group."
+              }
+            },
+            "avdWorkspaceName": {
+              "type": "string",
+              "defaultValue": "[format('ws-20med-{0}-{1}', toLower(parameters('environment')), toLower(parameters('workspaceName')))]",
+              "metadata": {
+                "description": "Friendly name of the AVD workspace."
+              }
+            },
+            "hostPoolType": {
+              "type": "string",
+              "defaultValue": "Pooled",
+              "allowedValues": [
+                "Pooled",
+                "Personal"
+              ],
+              "metadata": {
+                "description": "Host pool type."
+              }
+            },
+            "loadBalancerType": {
+              "type": "string",
+              "defaultValue": "BreadthFirst",
+              "allowedValues": [
+                "BreadthFirst",
+                "DepthFirst"
+              ],
+              "metadata": {
+                "description": "Load balancing algorithm for the pooled host pool."
+              }
+            },
+            "applicationGroupType": {
+              "type": "string",
+              "defaultValue": "Desktop",
+              "allowedValues": [
+                "Desktop",
+                "RemoteApp"
+              ],
+              "metadata": {
+                "description": "Preferred desktop application group type."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.DesktopVirtualization/hostPools",
+              "apiVersion": "2024-04-03",
+              "name": "[parameters('hostPoolName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "hostPoolType": "[parameters('hostPoolType')]",
+                "loadBalancerType": "[parameters('loadBalancerType')]",
+                "preferredAppGroupType": "[parameters('applicationGroupType')]",
+                "maxSessionLimit": "[parameters('maxSessionsPerHost')]",
+                "validationEnvironment": "[equals(parameters('environment'), 'uat')]",
+                "startVMOnConnect": true,
+                "customRdpProperty": "drivestoredirect:s:;usbdevicestoredirect:s:;redirectclipboard:i:0;redirectprinters:i:0;audiomode:i:0;videoplaybackmode:i:1;devicestoredirect:s:*;redirectcomports:i:1;redirectsmartcards:i:1;enablecredsspsupport:i:1;redirectwebauthn:i:1;use multimon:i:1;targetisaadjoined:i:1;",
+                "registrationInfo": "[if(parameters('createRegistrationToken'), createObject('expirationTime', parameters('registrationTokenExpiration'), 'registrationTokenOperation', 'Update'), null())]",
+                "ring": 0
+              }
+            },
+            {
+              "type": "Microsoft.DesktopVirtualization/applicationGroups",
+              "apiVersion": "2024-04-03",
+              "name": "[parameters('applicationGroupName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "hostPoolArmPath": "[resourceId('Microsoft.DesktopVirtualization/hostPools', parameters('hostPoolName'))]",
+                "applicationGroupType": "[parameters('applicationGroupType')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DesktopVirtualization/hostPools', parameters('hostPoolName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.DesktopVirtualization/applicationGroups', parameters('applicationGroupName'))]",
+              "name": "[guid(resourceId('Microsoft.DesktopVirtualization/applicationGroups', parameters('applicationGroupName')), parameters('avdUserGroupObjectId'), 'desktop-user')]",
+              "properties": {
+                "principalId": "[parameters('avdUserGroupObjectId')]",
+                "principalType": "Group",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '1d18fff3-a72a-46b5-b4a9-0b38a3cd7e63')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DesktopVirtualization/applicationGroups', parameters('applicationGroupName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(resourceGroup().id, parameters('avdServicePrincipalObjectId'), 'avd-power-on')]",
+              "properties": {
+                "principalId": "[parameters('avdServicePrincipalObjectId')]",
+                "principalType": "ServicePrincipal",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '489581de-a3bd-480d-9518-53dea7416b33')]"
+              }
+            },
+            {
+              "type": "Microsoft.DesktopVirtualization/workspaces",
+              "apiVersion": "2024-04-03",
+              "name": "[parameters('avdWorkspaceName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "friendlyName": "[format('{0} AVD Workspace', parameters('workspaceName'))]",
+                "description": "[format('20MED {0} Azure Virtual Desktop workspace. Max authorized users: {1}.', parameters('workspaceName'), parameters('maxAuthorizedUsers'))]",
+                "applicationGroupReferences": [
+                  "[resourceId('Microsoft.DesktopVirtualization/applicationGroups', parameters('applicationGroupName'))]"
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DesktopVirtualization/applicationGroups', parameters('applicationGroupName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "hostPoolId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.DesktopVirtualization/hostPools', parameters('hostPoolName'))]"
+            },
+            "hostPoolName": {
+              "type": "string",
+              "value": "[parameters('hostPoolName')]"
+            },
+            "applicationGroupId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.DesktopVirtualization/applicationGroups', parameters('applicationGroupName'))]"
+            },
+            "applicationGroupName": {
+              "type": "string",
+              "value": "[parameters('applicationGroupName')]"
+            },
+            "workspaceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.DesktopVirtualization/workspaces', parameters('avdWorkspaceName'))]"
+            },
+            "workspaceName": {
+              "type": "string",
+              "value": "[parameters('avdWorkspaceName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('deploySessionHosts')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-session-hosts', parameters('workspaceName'))]",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "workspaceName": {
+            "value": "[parameters('workspaceName')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "hostPoolName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', parameters('workspaceName'))), '2025-04-01').outputs.hostPoolName.value]"
+          },
+          "vnetName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.vnetName.value]"
+          },
+          "avdSubnetName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.avdSubnetName.value]"
+          },
+          "sessionHostCount": {
+            "value": "[parameters('sessionHostCount')]"
+          },
+          "vmSize": {
+            "value": "[parameters('vmSize')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "registrationToken": {
+            "value": "[parameters('registrationToken')]"
+          },
+          "avdUserGroupObjectId": {
+            "value": "[parameters('avdUserGroupObjectId')]"
+          },
+          "fslogixStorageAccountName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', parameters('workspaceName'))), '2025-04-01').outputs.storageAccountName.value]"
+          },
+          "fslogixFileShareName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', parameters('workspaceName'))), '2025-04-01').outputs.fileShareName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.47.16.16243",
+              "templateHash": "12865173264329277358"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the session hosts."
+              }
+            },
+            "workspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "20MED workspace name."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Common resource tags."
+              }
+            },
+            "hostPoolName": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing AVD host pool name."
+              }
+            },
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing VNet name."
+              }
+            },
+            "avdSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing AVD subnet name."
+              }
+            },
+            "sessionHostCount": {
+              "type": "int",
+              "defaultValue": 1,
+              "metadata": {
+                "description": "Number of session hosts to deploy."
+              }
+            },
+            "vmSize": {
+              "type": "string",
+              "defaultValue": "Standard_E4s_v5",
+              "metadata": {
+                "description": "Azure VM size for the session host."
+              }
+            },
+            "adminUsername": {
+              "type": "string",
+              "metadata": {
+                "description": "Local administrator username."
+              }
+            },
+            "adminPassword": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Local administrator password."
+              }
+            },
+            "registrationToken": {
+              "type": "securestring",
+              "defaultValue": "",
+              "metadata": {
+                "description": "AVD host pool registration token."
+              }
+            },
+            "avdUserGroupObjectId": {
+              "type": "string"
+            },
+            "fslogixStorageAccountName": {
+              "type": "string"
+            },
+            "fslogixFileShareName": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "$fxv#0": "param(\r\n    [Parameter(Mandatory)][string]$StorageAccountName,\r\n    [Parameter(Mandatory)][string]$StorageSuffix,\r\n    [Parameter(Mandatory)][string]$FileShareName,\r\n    [Parameter(Mandatory)][guid]$UserGroupObjectId,\r\n    [string]$InitializeShare = 'false',\r\n    [string]$StorageKey\r\n)\r\n\r\n$ErrorActionPreference = 'Stop'\r\n\r\nfunction Install-FSLogixIfMissing {\r\n    if (Get-Service frxsvc -ErrorAction SilentlyContinue) { return }\r\n\r\n    $workingDirectory = Join-Path $env:TEMP \"fslogix-$([guid]::NewGuid().ToString('N'))\"\r\n    $logDirectory = Join-Path $env:ProgramData 'FSLogix\\Deployment'\r\n    New-Item -ItemType Directory -Path $workingDirectory, $logDirectory -Force | Out-Null\r\n    try {\r\n        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12\r\n        $archivePath = Join-Path $workingDirectory 'FSLogix.zip'\r\n        Invoke-WebRequest -Uri 'https://aka.ms/fslogix_download' -OutFile $archivePath -UseBasicParsing -TimeoutSec 300\r\n        Expand-Archive -Path $archivePath -DestinationPath $workingDirectory -Force\r\n        $installers = @(Get-ChildItem $workingDirectory -Filter FSLogixAppsSetup.exe -Recurse |\r\n            Where-Object { $_.FullName -match '[\\\\/]x64[\\\\/]Release[\\\\/]FSLogixAppsSetup\\.exe$' })\r\n        if ($installers.Count -ne 1) { throw 'The FSLogix archive did not contain exactly one x64 Apps installer.' }\r\n        $installerPath = $installers[0].FullName\r\n        $signature = Get-AuthenticodeSignature $installerPath\r\n        if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch '(?:^|,\\s*)O=Microsoft Corporation(?:,|$)') {\r\n            throw 'The FSLogix installer does not have a valid Microsoft signature.'\r\n        }\r\n        $logPath = Join-Path $logDirectory 'install.log'\r\n        $installer = Start-Process -FilePath $installerPath -ArgumentList @(\r\n            '/install', '/quiet', '/norestart', '/log', \"`\"$logPath`\"\"\r\n        ) -Wait -PassThru\r\n        if ($installer.ExitCode -notin 0, 3010) {\r\n            throw \"FSLogix installation failed with exit code $($installer.ExitCode). See $logPath.\"\r\n        }\r\n        if (-not (Get-Service frxsvc -ErrorAction SilentlyContinue)) {\r\n            throw \"FSLogix installation finished but frxsvc is missing. See $logPath.\"\r\n        }\r\n        Write-Output 'FSLogix installed successfully; the deployment orchestrator must reboot the host.'\r\n    }\r\n    finally {\r\n        Remove-Item $workingDirectory -Recurse -Force -ErrorAction SilentlyContinue\r\n    }\r\n}\r\n\r\n$windowsVersion = Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion'\r\nif ([int]$windowsVersion.CurrentBuild -lt 26100 -or\r\n    ([int]$windowsVersion.CurrentBuild -in 26100, 26200 -and [int]$windowsVersion.UBR -lt 8116)) {\r\n    throw 'Cloud-only Azure Files requires a patched Windows 11 image (24H2/25H2 build .8116 or later).'\r\n}\r\nInstall-FSLogixIfMissing\r\n\r\n$fileHost = \"$StorageAccountName.file.$StorageSuffix\"\r\n$addresses = Resolve-DnsName $fileHost -Type A -ErrorAction Stop\r\nif (-not ($addresses | Where-Object { $_.IPAddress -like '10.10.4.*' })) {\r\n    throw 'The file endpoint did not resolve to the private endpoint subnet.'\r\n}\r\nif (-not (Test-NetConnection $fileHost -Port 445 -InformationLevel Quiet)) {\r\n    throw 'The Azure Files private endpoint is unreachable on TCP 445.'\r\n}\r\n$sharePath = \"\\\\$fileHost\\$FileShareName\"\r\n\r\nif ($InitializeShare -eq 'true') {\r\n    if (-not $StorageKey) { throw 'A protected storage key is required to initialize profile ACLs.' }\r\n    $credential = [pscredential]::new(\"localhost\\$StorageAccountName\", (ConvertTo-SecureString $StorageKey -AsPlainText -Force))\r\n    try {\r\n        New-PSDrive -Name Profiles -PSProvider FileSystem -Root $sharePath -Credential $credential | Out-Null\r\n        $groupBytes = $UserGroupObjectId.ToByteArray()\r\n        $sidParts = for ($offset = 0; $offset -lt 16; $offset += 4) {\r\n            [BitConverter]::ToUInt32($groupBytes, $offset)\r\n        }\r\n        $groupSid = [System.Security.Principal.SecurityIdentifier]::new(\"S-1-12-1-$($sidParts -join '-')\")\r\n        $acl = Get-Acl 'Profiles:\\'\r\n        $acl.SetAccessRuleProtection($true, $false)\r\n        foreach ($rule in @($acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))) {\r\n            [void]$acl.RemoveAccessRuleSpecific($rule)\r\n        }\r\n        $inheritance = [System.Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'\r\n        $allow = [System.Security.AccessControl.AccessControlType]::Allow\r\n        foreach ($adminSid in 'S-1-5-18', 'S-1-5-32-544') {\r\n            $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new(\r\n                [System.Security.Principal.SecurityIdentifier]::new($adminSid), 'FullControl', $inheritance, 'None', $allow))\r\n        }\r\n        $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new(\r\n            [System.Security.Principal.SecurityIdentifier]::new('S-1-3-0'), 'Modify', $inheritance, 'InheritOnly', $allow))\r\n        $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new(\r\n            $groupSid, 'ReadAndExecute, Write', 'None', 'None', $allow))\r\n        Set-Acl 'Profiles:\\' $acl\r\n    }\r\n    finally {\r\n        Remove-PSDrive Profiles -ErrorAction SilentlyContinue\r\n        $StorageKey = $null\r\n        $credential = $null\r\n    }\r\n}\r\n\r\n$profileRegistry = 'HKLM:\\SOFTWARE\\FSLogix\\Profiles'\r\nNew-Item $profileRegistry -Force | Out-Null\r\nNew-ItemProperty $profileRegistry -Name VHDLocations -PropertyType MultiString -Value @($sharePath) -Force | Out-Null\r\nNew-ItemProperty $profileRegistry -Name VolumeType -PropertyType String -Value VHDX -Force | Out-Null\r\nNew-ItemProperty $profileRegistry -Name Enabled -PropertyType DWord -Value 1 -Force | Out-Null\r\nNew-ItemProperty $profileRegistry -Name PreventLoginWithFailure -PropertyType DWord -Value 1 -Force | Out-Null\r\nNew-ItemProperty $profileRegistry -Name PreventLoginWithTempProfile -PropertyType DWord -Value 1 -Force | Out-Null\r\n\r\n$kerberosRegistry = 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\Kerberos\\Parameters'\r\nNew-Item $kerberosRegistry -Force | Out-Null\r\nNew-ItemProperty $kerberosRegistry -Name CloudKerberosTicketRetrievalEnabled -PropertyType DWord -Value 1 -Force | Out-Null\r\n$accountRegistry = 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\AzureADAccount'\r\nNew-Item $accountRegistry -Force | Out-Null\r\nNew-ItemProperty $accountRegistry -Name LoadCredKeyFromProfile -PropertyType DWord -Value 1 -Force | Out-Null\r\nStart-Service iphlpsvc\r\nStart-Service WinHttpAutoProxySvc\r\nSet-Service frxsvc -StartupType Automatic\r\nStart-Service frxsvc\r\nWrite-Output 'FSLogix configured; private DNS and SMB connectivity verified.'"
+          },
+          "resources": [
+            {
+              "copy": {
+                "name": "networkInterfaces",
+                "count": "[length(range(0, parameters('sessionHostCount')))]"
+              },
+              "type": "Microsoft.Network/networkInterfaces",
+              "apiVersion": "2024-05-01",
+              "name": "[format('nic-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[copyIndex()], 1))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "ipConfigurations": [
+                  {
+                    "name": "ipconfig1",
+                    "properties": {
+                      "privateIPAllocationMethod": "Dynamic",
+                      "subnet": {
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('avdSubnetName'))]"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "copy": {
+                "name": "sessionHosts",
+                "count": "[length(range(0, parameters('sessionHostCount')))]"
+              },
+              "type": "Microsoft.Compute/virtualMachines",
+              "apiVersion": "2026-04-01",
+              "name": "[format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[copyIndex()], 1))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "hardwareProfile": {
+                  "vmSize": "[parameters('vmSize')]"
+                },
+                "osProfile": {
+                  "computerName": "[format('avd-{0}', add(range(0, parameters('sessionHostCount'))[copyIndex()], 1))]",
+                  "adminUsername": "[parameters('adminUsername')]",
+                  "adminPassword": "[parameters('adminPassword')]"
+                },
+                "storageProfile": {
+                  "imageReference": {
+                    "publisher": "MicrosoftWindowsDesktop",
+                    "offer": "Windows-11",
+                    "sku": "win11-24h2-avd",
+                    "version": "latest"
+                  },
+                  "osDisk": {
+                    "createOption": "FromImage",
+                    "managedDisk": {
+                      "storageAccountType": "Premium_LRS"
+                    }
+                  }
+                },
+                "networkProfile": {
+                  "networkInterfaces": [
+                    {
+                      "id": "[resourceId('Microsoft.Network/networkInterfaces', format('nic-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1)))]",
+                      "properties": {
+                        "primary": true
+                      }
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', format('nic-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1)))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "aadLoginExtension",
+                "count": "[length(range(0, parameters('sessionHostCount')))]"
+              },
+              "type": "Microsoft.Compute/virtualMachines/extensions",
+              "apiVersion": "2026-04-01",
+              "name": "[format('{0}/{1}', format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1)), 'AADLoginForWindows')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "publisher": "Microsoft.Azure.ActiveDirectory",
+                "type": "AADLoginForWindows",
+                "typeHandlerVersion": "1.0",
+                "autoUpgradeMinorVersion": true,
+                "enableAutomaticUpgrade": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines/runCommands', format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]]], 1)), 'Configure-FSLogix')]",
+                "[resourceId('Microsoft.Compute/virtualMachines', format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1)))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "vmUserAssignment",
+                "count": "[length(range(0, parameters('sessionHostCount')))]"
+              },
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Compute/virtualMachines', format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1)))]",
+              "name": "[guid(resourceId('Microsoft.Compute/virtualMachines', format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1))), parameters('avdUserGroupObjectId'), 'vm-user-login')]",
+              "properties": {
+                "principalId": "[parameters('avdUserGroupObjectId')]",
+                "principalType": "Group",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'fb879df8-f326-4884-b1cf-06f3ad86be52')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines', format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1)))]",
+                "[resourceId('Microsoft.Compute/virtualMachines', format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1)))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "configureProfiles",
+                "count": "[length(range(0, parameters('sessionHostCount')))]"
+              },
+              "type": "Microsoft.Compute/virtualMachines/runCommands",
+              "apiVersion": "2024-11-01",
+              "name": "[format('{0}/{1}', format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1)), 'Configure-FSLogix')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "source": {
+                  "script": "[variables('$fxv#0')]"
+                },
+                "parameters": [
+                  {
+                    "name": "StorageAccountName",
+                    "value": "[parameters('fslogixStorageAccountName')]"
+                  },
+                  {
+                    "name": "StorageSuffix",
+                    "value": "[environment().suffixes.storage]"
+                  },
+                  {
+                    "name": "FileShareName",
+                    "value": "[parameters('fslogixFileShareName')]"
+                  },
+                  {
+                    "name": "UserGroupObjectId",
+                    "value": "[parameters('avdUserGroupObjectId')]"
+                  },
+                  {
+                    "name": "InitializeShare",
+                    "value": "[string(equals(range(0, parameters('sessionHostCount'))[copyIndex()], 0))]"
+                  }
+                ],
+                "protectedParameters": "[if(equals(range(0, parameters('sessionHostCount'))[copyIndex()], 0), createArray(createObject('name', 'StorageKey', 'value', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('fslogixStorageAccountName')), '2024-01-01').keys[0].value)), createArray())]",
+                "asyncExecution": false,
+                "timeoutInSeconds": 1800,
+                "treatFailureAsDeploymentFailure": true
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines', format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1)))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "avdSessionHostExtension",
+                "count": "[length(range(0, parameters('sessionHostCount')))]"
+              },
+              "type": "Microsoft.Compute/virtualMachines/extensions",
+              "apiVersion": "2026-04-01",
+              "name": "[format('{0}/{1}', format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1)), 'Microsoft.PowerShell.DSC')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "publisher": "Microsoft.Powershell",
+                "type": "DSC",
+                "typeHandlerVersion": "2.83",
+                "settings": {
+                  "modulesUrl": "https://wvdportalstorageblob.blob.core.windows.net/galleryartifacts/Configuration_1.0.02797.442.zip",
+                  "configurationFunction": "Configuration.ps1\\AddSessionHost",
+                  "properties": {
+                    "HostPoolName": "[parameters('hostPoolName')]",
+                    "aadJoin": true
+                  }
+                },
+                "protectedSettings": {
+                  "properties": {
+                    "RegistrationInfoToken": "[if(empty(parameters('registrationToken')), listRegistrationTokens(resourceId('Microsoft.DesktopVirtualization/hostPools', parameters('hostPoolName')), '2024-04-03').value[0].token, parameters('registrationToken'))]"
+                  }
+                },
+                "autoUpgradeMinorVersion": true
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines/extensions', format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]]], 1)), 'AADLoginForWindows')]",
+                "[resourceId('Microsoft.Compute/virtualMachines', format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1)))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "sessionHostCount": {
+              "type": "int",
+              "value": "[parameters('sessionHostCount')]"
+            },
+            "sessionHostNames": {
+              "type": "array",
+              "copy": {
+                "count": "[length(range(0, parameters('sessionHostCount')))]",
+                "input": "[format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1))]"
+              }
+            },
+            "sessionHostIds": {
+              "type": "array",
+              "copy": {
+                "count": "[length(range(0, parameters('sessionHostCount')))]",
+                "input": "[resourceId('Microsoft.Compute/virtualMachines', format('vm-{0}-{1}', toLower(parameters('workspaceName')), add(range(0, parameters('sessionHostCount'))[range(0, parameters('sessionHostCount'))[copyIndex()]], 1)))]"
+              }
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', parameters('workspaceName')))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', parameters('workspaceName')))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName')))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-routing', parameters('workspaceName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-fslogix-storage', parameters('workspaceName'))]",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "workspaceName": {
+            "value": "[parameters('workspaceName')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "storageSku": {
+            "value": "Premium_LRS"
+          },
+          "fileShareName": {
+            "value": "de-fslogix"
+          },
+          "fileShareQuotaGiB": {
+            "value": "[parameters('fileShareQuotaGiB')]"
+          },
+          "avdUserGroupObjectId": {
+            "value": "[parameters('avdUserGroupObjectId')]"
+          },
+          "vnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.vnetId.value]"
+          },
+          "privateEndpointSubnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.privateEndpointSubnetId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.47.16.16243",
+              "templateHash": "16809145074535763916"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the FSLogix storage account."
+              }
+            },
+            "workspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "20MED workspace name."
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "Deployment environment."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Common resource tags."
+              }
+            },
+            "avdUserGroupObjectId": {
+              "type": "string"
+            },
+            "vnetId": {
+              "type": "string"
+            },
+            "privateEndpointSubnetId": {
+              "type": "string"
+            },
+            "storageSku": {
+              "type": "string",
+              "defaultValue": "Premium_LRS",
+              "allowedValues": [
+                "Premium_LRS"
+              ],
+              "metadata": {
+                "description": "Storage account SKU."
+              }
+            },
+            "fileShareName": {
+              "type": "string",
+              "defaultValue": "de-fslogix",
+              "metadata": {
+                "description": "FSLogix file share name."
+              }
+            },
+            "fileShareQuotaGiB": {
+              "type": "int",
+              "defaultValue": 500,
+              "metadata": {
+                "description": "File share quota in GiB."
+              }
+            }
+          },
+          "variables": {
+            "storageAccountName": "[format('st20{0}{1}', toLower(parameters('environment')), toLower(parameters('workspaceName')))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2024-01-01",
+              "name": "[variables('storageAccountName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "[parameters('storageSku')]"
+              },
+              "kind": "FileStorage",
+              "properties": {
+                "minimumTlsVersion": "TLS1_2",
+                "allowBlobPublicAccess": false,
+                "publicNetworkAccess": "Disabled",
+                "supportsHttpsTrafficOnly": true,
+                "azureFilesIdentityBasedAuthentication": {
+                  "directoryServiceOptions": "AADKERB",
+                  "defaultSharePermission": "None"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/fileServices",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', variables('storageAccountName'), 'default')]",
+              "properties": {
+                "protocolSettings": {
+                  "smb": {
+                    "multichannel": {
+                      "enabled": true
+                    }
+                  }
+                },
+                "shareDeleteRetentionPolicy": {
+                  "enabled": true,
+                  "days": 7
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}/{2}', variables('storageAccountName'), 'default', parameters('fileShareName'))]",
+              "properties": {
+                "accessTier": "Premium",
+                "shareQuota": "[parameters('fileShareQuotaGiB')]",
+                "fileSharePaidBursting": {
+                  "paidBurstingEnabled": false
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices', variables('storageAccountName'), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts/fileServices/shares', variables('storageAccountName'), 'default', parameters('fileShareName'))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts/fileServices/shares', variables('storageAccountName'), 'default', parameters('fileShareName')), parameters('avdUserGroupObjectId'), 'smb-contributor')]",
+              "properties": {
+                "principalId": "[parameters('avdUserGroupObjectId')]",
+                "principalType": "Group",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices/shares', variables('storageAccountName'), 'default', parameters('fileShareName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "[format('privatelink.file.{0}', environment().suffixes.storage)]",
+              "location": "global",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', format('privatelink.file.{0}', environment().suffixes.storage), format('{0}-link', toLower(parameters('workspaceName'))))]",
+              "location": "global",
+              "properties": {
+                "registrationEnabled": false,
+                "virtualNetwork": {
+                  "id": "[parameters('vnetId')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', format('privatelink.file.{0}', environment().suffixes.storage))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-05-01",
+              "name": "[format('pe-{0}-file', variables('storageAccountName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('privateEndpointSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "files",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+                      "groupIds": [
+                        "file"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', format('pe-{0}-file', variables('storageAccountName')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "files",
+                    "properties": {
+                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', format('privatelink.file.{0}', environment().suffixes.storage))]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', format('privatelink.file.{0}', environment().suffixes.storage))]",
+                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-file', variables('storageAccountName')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "storageAccountName": {
+              "type": "string",
+              "value": "[variables('storageAccountName')]"
+            },
+            "storageAccountId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+            },
+            "fileShareName": {
+              "type": "string",
+              "value": "[parameters('fileShareName')]"
+            },
+            "fileShareId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Storage/storageAccounts/fileServices/shares', variables('storageAccountName'), 'default', parameters('fileShareName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-monitoring', parameters('workspaceName'))]",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "workspaceName": {
+            "value": "[parameters('workspaceName')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "hostPoolId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', parameters('workspaceName'))), '2025-04-01').outputs.hostPoolId.value]"
+          },
+          "firewallId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-firewall', parameters('workspaceName'))), '2025-04-01').outputs.firewallId.value]"
+          },
+          "logAnalyticsSku": {
+            "value": "PerGB2018"
+          },
+          "retentionInDays": {
+            "value": "[parameters('retentionInDays')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.47.16.16243",
+              "templateHash": "3387458752925644615"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for monitoring resources."
+              }
+            },
+            "workspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "20MED workspace name."
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "Deployment environment."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Common resource tags."
+              }
+            },
+            "hostPoolId": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing AVD host pool resource ID."
+              }
+            },
+            "firewallId": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing Azure Firewall resource ID."
+              }
+            },
+            "logAnalyticsSku": {
+              "type": "string",
+              "defaultValue": "PerGB2018",
+              "metadata": {
+                "description": "Log Analytics workspace SKU."
+              }
+            },
+            "retentionInDays": {
+              "type": "int",
+              "defaultValue": 30,
+              "metadata": {
+                "description": "Interactive retention period in days."
+              }
+            }
+          },
+          "variables": {
+            "workspaceNameValue": "[format('law-20med-{0}-{1}', toLower(parameters('environment')), toLower(parameters('workspaceName')))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2023-09-01",
+              "name": "[variables('workspaceNameValue')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "name": "[parameters('logAnalyticsSku')]"
+                },
+                "retentionInDays": "[parameters('retentionInDays')]",
+                "features": {
+                  "enableLogAccessUsingOnlyResourcePermissions": true
+                },
+                "publicNetworkAccessForIngestion": "Enabled",
+                "publicNetworkAccessForQuery": "Enabled"
+              }
+            },
+            {
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[resourceId('Microsoft.DesktopVirtualization/hostPools', last(split(parameters('hostPoolId'), '/')))]",
+              "name": "[format('diag-{0}-hostpool', toLower(parameters('workspaceName')))]",
+              "properties": {
+                "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceNameValue'))]",
+                "logAnalyticsDestinationType": "Dedicated",
+                "logs": [
+                  {
+                    "categoryGroup": "allLogs",
+                    "enabled": true
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceNameValue'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[resourceId('Microsoft.Network/azureFirewalls', last(split(parameters('firewallId'), '/')))]",
+              "name": "[format('diag-{0}-firewall', toLower(parameters('workspaceName')))]",
+              "properties": {
+                "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceNameValue'))]",
+                "logAnalyticsDestinationType": "Dedicated",
+                "logs": [
+                  {
+                    "categoryGroup": "allLogs",
+                    "enabled": true
+                  }
+                ],
+                "metrics": [
+                  {
+                    "category": "AllMetrics",
+                    "enabled": true
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceNameValue'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceNameValue'))]"
+            },
+            "logAnalyticsWorkspaceName": {
+              "type": "string",
+              "value": "[variables('workspaceNameValue')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', parameters('workspaceName')))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-firewall', parameters('workspaceName')))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "hostPoolName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', parameters('workspaceName'))), '2025-04-01').outputs.hostPoolName.value]"
+    },
+    "fslogixStorageAccountName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', parameters('workspaceName'))), '2025-04-01').outputs.storageAccountName.value]"
+    },
+    "fslogixFileShareName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', parameters('workspaceName'))), '2025-04-01').outputs.fileShareName.value]"
+    },
+    "avdUserGroupObjectId": {
+      "type": "string",
+      "value": "[parameters('avdUserGroupObjectId')]"
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "value": "[parameters('resourceGroupName')]"
+    },
+    "sessionHostIds": {
+      "type": "array",
+      "value": "[if(parameters('deploySessionHosts'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-session-hosts', parameters('workspaceName'))), '2025-04-01').outputs.sessionHostIds.value, createArray())]"
+    }
+  }
+}

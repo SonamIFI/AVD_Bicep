@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+*.publishsettings
+*.parameters.json
+*.bicepparam.local
+.azure/
+.terraform/

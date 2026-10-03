@@ -1,0 +1,79 @@
+name: Deploy AVD
+
+on:
+  workflow_dispatch:
+    inputs:
+      user_object_ids:
+        description: Comma-separated object IDs for cloud-only Entra member users
+        required: true
+        type: string
+      exclude_storage_from_mfa_policies:
+        description: Apply previously approved storage-app MFA exclusions
+        required: true
+        default: false
+        type: boolean
+      mfa_policy_ids:
+        description: Comma-separated MFA policy IDs approved for storage-app exclusion
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-avd
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: windows-latest
+    environment: avd-deploy
+    timeout-minutes: 180
+    steps:
+      - name: Check out infrastructure code
+        uses: actions/checkout@v4
+
+      - name: Install Bicep CLI
+        shell: pwsh
+        run: az bicep install
+
+      - name: Compile Bicep templates
+        shell: pwsh
+        run: az bicep build --file main.bicep
+
+      - name: Test FSLogix installer logic
+        shell: pwsh
+        run: ./Scripts/Test-FSLogixInstallation.ps1
+
+      - name: Sign in to Azure with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy infrastructure, hosts, and FSLogix
+        shell: pwsh
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          AVD_ADMIN_PASSWORD: ${{ secrets.AVD_ADMIN_PASSWORD }}
+          AVD_USER_OBJECT_IDS: ${{ inputs.user_object_ids }}
+          EXCLUDE_STORAGE_FROM_MFA_POLICIES: ${{ inputs.exclude_storage_from_mfa_policies }}
+          MFA_POLICY_IDS: ${{ inputs.mfa_policy_ids }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:AVD_ADMIN_PASSWORD)) { throw 'Configure the AVD_ADMIN_PASSWORD secret in the avd-deploy GitHub Environment.' }
+          $userObjectIds = @($env:AVD_USER_OBJECT_IDS -split '[,;\s]+' | Where-Object { $_ } | ForEach-Object { [guid]$_.Trim() })
+          $deployParameters = @{
+            SubscriptionId = [guid]$env:AZURE_SUBSCRIPTION_ID
+            UserObjectIds = [guid[]]$userObjectIds
+          }
+
+          if ($env:EXCLUDE_STORAGE_FROM_MFA_POLICIES -eq 'true') {
+            $mfaPolicyIds = @($env:MFA_POLICY_IDS -split '[,;\s]+' | Where-Object { $_ } | ForEach-Object { [guid]$_.Trim() })
+            if ($mfaPolicyIds.Count -eq 0) { throw 'Approved MFA policy IDs are required when exclusions are enabled.' }
+            $deployParameters.ExcludeStorageFromMfaPolicies = $true
+            $deployParameters.MfaPolicyIds = [guid[]]$mfaPolicyIds
+          }
+
+          ./Scripts/deploy.ps1 @deployParameters
