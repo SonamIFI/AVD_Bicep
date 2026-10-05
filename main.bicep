@@ -3,11 +3,18 @@ targetScope = 'subscription'
 @description('Azure region for the Data Engineering AVD environment.')
 param location string = 'Central India'
 
-@description('Name of the resource group for the AVD environment.')
-param resourceGroupName string
+@description('Select exactly one AVD workspace phase for this deployment.')
+@allowed([
+  'DataEngineering'
+  'Prospecting'
+  'Sales'
+  'ReferenceData'
+  'Finance'
+])
+param activeWorkspace string = 'DataEngineering'
 
-@description('20MED workspace name.')
-param workspaceName string = 'DataEngineering'
+@description('Work Order or written acceptance reference authorizing this phase.')
+param phaseAcceptanceReference string = 'INITIAL-DATA-ENGINEERING-WORK-ORDER'
 
 @description('Local administrator username for the session host.')
 param adminUsername string
@@ -67,12 +74,23 @@ param fileShareQuotaGiB int = 500
 param retentionInDays int = 30
 
 @description('Common resource tags applied to all resources.')
-param tags object = {
+param tags object = {}
+
+var deployDataEngineering = activeWorkspace == 'DataEngineering'
+var deployProspecting = activeWorkspace == 'Prospecting'
+var deploySales = activeWorkspace == 'Sales'
+var deployReferenceData = activeWorkspace == 'ReferenceData'
+var deployFinance = activeWorkspace == 'Finance'
+var workspaceName = deployDataEngineering ? 'DataEngineering' : deployProspecting ? 'Prospecting' : deploySales ? 'Sales' : deployReferenceData ? 'ReferenceData' : deployFinance ? 'Finance' : 'InvalidPhase'
+var resourceGroupName = 'rg-20med-avd-${toLower(workspaceName)}-${environment}'
+var sharedCoreWorkspaceName = 'DataEngineering'
+var resourceTags = union(tags, {
   Environment: environment
   Workspace: workspaceName
+  PhaseAcceptanceReference: phaseAcceptanceReference
   ManagedBy: 'Bicep'
   Owner: 'IFI Tech'
-}
+})
 
 // ------------------------------------------------------------
 // Resource Group
@@ -89,14 +107,14 @@ resource avdResourceGroup 'Microsoft.Resources/resourceGroups@2022-09-01' = {
 // ------------------------------------------------------------
 
 module keyVault 'modules/keyvault.bicep' = {
-  name: '${workspaceName}-keyvault'
+  name: '${sharedCoreWorkspaceName}-keyvault'
   scope: avdResourceGroup
 
   params: {
     location: location
-    workspaceName: workspaceName
+    workspaceName: sharedCoreWorkspaceName
     environment: environment
-    tags: tags
+    tags: resourceTags
   }
 }
 
@@ -105,14 +123,14 @@ module keyVault 'modules/keyvault.bicep' = {
 // ------------------------------------------------------------
 
 module networking 'modules/networking.bicep' = {
-  name: '${workspaceName}-networking'
+  name: '${sharedCoreWorkspaceName}-networking'
   scope: avdResourceGroup
 
   params: {
     location: location
-    workspaceName: workspaceName
+    workspaceName: sharedCoreWorkspaceName
     environment: environment
-    tags: tags
+    tags: resourceTags
   }
 }
 
@@ -121,14 +139,14 @@ module networking 'modules/networking.bicep' = {
 // ------------------------------------------------------------
 
 module firewall 'modules/firewall.bicep' = {
-  name: '${workspaceName}-firewall'
+  name: '${sharedCoreWorkspaceName}-firewall'
   scope: avdResourceGroup
 
   params: {
     location: location
-    workspaceName: workspaceName
+    workspaceName: sharedCoreWorkspaceName
     environment: environment
-    tags: tags
+    tags: resourceTags
 
     firewallSubnetId: networking.outputs.firewallSubnetId
     firewallManagementSubnetId: networking.outputs.firewallManagementSubnetId
@@ -145,14 +163,14 @@ module firewall 'modules/firewall.bicep' = {
 // ------------------------------------------------------------
 
 module routing 'modules/routing.bicep' = {
-  name: '${workspaceName}-routing'
+  name: '${sharedCoreWorkspaceName}-routing'
   scope: avdResourceGroup
 
   params: {
     location: location
-    workspaceName: workspaceName
+    workspaceName: sharedCoreWorkspaceName
     environment: environment
-    tags: tags
+    tags: resourceTags
 
     vnetName: networking.outputs.vnetName
     avdSubnetName: networking.outputs.avdSubnetName
@@ -175,7 +193,7 @@ module avd 'modules/avd.bicep' = {
     location: location
     workspaceName: workspaceName
     environment: environment
-    tags: tags
+    tags: resourceTags
 
     maxAuthorizedUsers: maxAuthorizedUsers
     maxSessionsPerHost: maxSessionsPerHost
@@ -196,7 +214,7 @@ module sessionHosts 'modules/session-host.bicep' = if (deploySessionHosts) {
   params: {
     location: location
     workspaceName: workspaceName
-    tags: tags
+    tags: resourceTags
 
     hostPoolName: avd.outputs.hostPoolName
 
@@ -232,7 +250,7 @@ module fslogixStorage 'modules/storage-fslogix.bicep' = {
     location: location
     workspaceName: workspaceName
     environment: environment
-    tags: tags
+    tags: resourceTags
 
     storageSku: 'Premium_LRS'
     fileShareName: 'de-fslogix'

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "17673824360190342069"
+      "templateHash": "9402543061017353009"
     }
   },
   "parameters": {
@@ -16,17 +16,25 @@
         "description": "Azure region for the Data Engineering AVD environment."
       }
     },
-    "resourceGroupName": {
-      "type": "string",
-      "metadata": {
-        "description": "Name of the resource group for the AVD environment."
-      }
-    },
-    "workspaceName": {
+    "activeWorkspace": {
       "type": "string",
       "defaultValue": "DataEngineering",
+      "allowedValues": [
+        "DataEngineering",
+        "Prospecting",
+        "Sales",
+        "ReferenceData",
+        "Finance"
+      ],
       "metadata": {
-        "description": "20MED workspace name."
+        "description": "Select exactly one AVD workspace phase for this deployment."
+      }
+    },
+    "phaseAcceptanceReference": {
+      "type": "string",
+      "defaultValue": "INITIAL-DATA-ENGINEERING-WORK-ORDER",
+      "metadata": {
+        "description": "Work Order or written acceptance reference authorizing this phase."
       }
     },
     "adminUsername": {
@@ -145,30 +153,36 @@
     },
     "tags": {
       "type": "object",
-      "defaultValue": {
-        "Environment": "[parameters('environment')]",
-        "Workspace": "[parameters('workspaceName')]",
-        "ManagedBy": "Bicep",
-        "Owner": "IFI Tech"
-      },
+      "defaultValue": {},
       "metadata": {
         "description": "Common resource tags applied to all resources."
       }
     }
   },
+  "variables": {
+    "deployDataEngineering": "[equals(parameters('activeWorkspace'), 'DataEngineering')]",
+    "deployProspecting": "[equals(parameters('activeWorkspace'), 'Prospecting')]",
+    "deploySales": "[equals(parameters('activeWorkspace'), 'Sales')]",
+    "deployReferenceData": "[equals(parameters('activeWorkspace'), 'ReferenceData')]",
+    "deployFinance": "[equals(parameters('activeWorkspace'), 'Finance')]",
+    "workspaceName": "[if(variables('deployDataEngineering'), 'DataEngineering', if(variables('deployProspecting'), 'Prospecting', if(variables('deploySales'), 'Sales', if(variables('deployReferenceData'), 'ReferenceData', if(variables('deployFinance'), 'Finance', 'InvalidPhase')))))]",
+    "resourceGroupName": "[format('rg-20med-avd-{0}-{1}', toLower(variables('workspaceName')), parameters('environment'))]",
+    "sharedCoreWorkspaceName": "DataEngineering",
+    "resourceTags": "[union(parameters('tags'), createObject('Environment', parameters('environment'), 'Workspace', variables('workspaceName'), 'PhaseAcceptanceReference', parameters('phaseAcceptanceReference'), 'ManagedBy', 'Bicep', 'Owner', 'IFI Tech'))]"
+  },
   "resources": [
     {
       "type": "Microsoft.Resources/resourceGroups",
       "apiVersion": "2022-09-01",
-      "name": "[parameters('resourceGroupName')]",
+      "name": "[variables('resourceGroupName')]",
       "location": "[parameters('location')]",
       "tags": "[parameters('tags')]"
     },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
-      "name": "[format('{0}-keyvault', parameters('workspaceName'))]",
-      "resourceGroup": "[parameters('resourceGroupName')]",
+      "name": "[format('{0}-keyvault', variables('sharedCoreWorkspaceName'))]",
+      "resourceGroup": "[variables('resourceGroupName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -179,13 +193,13 @@
             "value": "[parameters('location')]"
           },
           "workspaceName": {
-            "value": "[parameters('workspaceName')]"
+            "value": "[variables('sharedCoreWorkspaceName')]"
           },
           "environment": {
             "value": "[parameters('environment')]"
           },
           "tags": {
-            "value": "[parameters('tags')]"
+            "value": "[variables('resourceTags')]"
           }
         },
         "template": {
@@ -267,14 +281,14 @@
         }
       },
       "dependsOn": [
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('resourceGroupName'))]"
       ]
     },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
-      "name": "[format('{0}-networking', parameters('workspaceName'))]",
-      "resourceGroup": "[parameters('resourceGroupName')]",
+      "name": "[format('{0}-networking', variables('sharedCoreWorkspaceName'))]",
+      "resourceGroup": "[variables('resourceGroupName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -285,13 +299,13 @@
             "value": "[parameters('location')]"
           },
           "workspaceName": {
-            "value": "[parameters('workspaceName')]"
+            "value": "[variables('sharedCoreWorkspaceName')]"
           },
           "environment": {
             "value": "[parameters('environment')]"
           },
           "tags": {
-            "value": "[parameters('tags')]"
+            "value": "[variables('resourceTags')]"
           }
         },
         "template": {
@@ -301,7 +315,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.47.16.16243",
-              "templateHash": "10837343674806197253"
+              "templateHash": "17467505697335434197"
             }
           },
           "parameters": {
@@ -379,8 +393,8 @@
             "firewallManagementSubnetName": "AzureFirewallManagementSubnet",
             "managementSubnetName": "[format('snet-management-{0}', toLower(parameters('workspaceName')))]",
             "privateEndpointSubnetName": "[format('snet-private-endpoint-{0}', toLower(parameters('workspaceName')))]",
-            "avdNsgName": "[format('nsg-avd-{0}', toLower(parameters('workspaceName')))]",
-            "managementNsgName": "[format('nsg-management-{0}', toLower(parameters('workspaceName')))]"
+            "avdNsgName": "[format('nsg-avd-{0}-{1}', toLower(parameters('environment')), toLower(parameters('workspaceName')))]",
+            "managementNsgName": "[format('nsg-management-{0}-{1}', toLower(parameters('environment')), toLower(parameters('workspaceName')))]"
           },
           "resources": [
             {
@@ -529,14 +543,14 @@
         }
       },
       "dependsOn": [
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('resourceGroupName'))]"
       ]
     },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
-      "name": "[format('{0}-firewall', parameters('workspaceName'))]",
-      "resourceGroup": "[parameters('resourceGroupName')]",
+      "name": "[format('{0}-firewall', variables('sharedCoreWorkspaceName'))]",
+      "resourceGroup": "[variables('resourceGroupName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -547,19 +561,19 @@
             "value": "[parameters('location')]"
           },
           "workspaceName": {
-            "value": "[parameters('workspaceName')]"
+            "value": "[variables('sharedCoreWorkspaceName')]"
           },
           "environment": {
             "value": "[parameters('environment')]"
           },
           "tags": {
-            "value": "[parameters('tags')]"
+            "value": "[variables('resourceTags')]"
           },
           "firewallSubnetId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.firewallSubnetId.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', variables('sharedCoreWorkspaceName'))), '2025-04-01').outputs.firewallSubnetId.value]"
           },
           "firewallManagementSubnetId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.firewallManagementSubnetId.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', variables('sharedCoreWorkspaceName'))), '2025-04-01').outputs.firewallManagementSubnetId.value]"
           },
           "avdSubnetPrefix": {
             "value": "10.10.1.0/24"
@@ -925,15 +939,15 @@
         }
       },
       "dependsOn": [
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName')))]"
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('resourceGroupName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', variables('sharedCoreWorkspaceName')))]"
       ]
     },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
-      "name": "[format('{0}-routing', parameters('workspaceName'))]",
-      "resourceGroup": "[parameters('resourceGroupName')]",
+      "name": "[format('{0}-routing', variables('sharedCoreWorkspaceName'))]",
+      "resourceGroup": "[variables('resourceGroupName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -944,28 +958,28 @@
             "value": "[parameters('location')]"
           },
           "workspaceName": {
-            "value": "[parameters('workspaceName')]"
+            "value": "[variables('sharedCoreWorkspaceName')]"
           },
           "environment": {
             "value": "[parameters('environment')]"
           },
           "tags": {
-            "value": "[parameters('tags')]"
+            "value": "[variables('resourceTags')]"
           },
           "vnetName": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.vnetName.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', variables('sharedCoreWorkspaceName'))), '2025-04-01').outputs.vnetName.value]"
           },
           "avdSubnetName": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.avdSubnetName.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', variables('sharedCoreWorkspaceName'))), '2025-04-01').outputs.avdSubnetName.value]"
           },
           "avdSubnetPrefix": {
             "value": "10.10.1.0/24"
           },
           "avdNsgId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.avdNsgId.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', variables('sharedCoreWorkspaceName'))), '2025-04-01').outputs.avdNsgId.value]"
           },
           "firewallPrivateIp": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-firewall', parameters('workspaceName'))), '2025-04-01').outputs.firewallPrivateIp.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-firewall', variables('sharedCoreWorkspaceName'))), '2025-04-01').outputs.firewallPrivateIp.value]"
           }
         },
         "template": {
@@ -1090,16 +1104,16 @@
         }
       },
       "dependsOn": [
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-firewall', parameters('workspaceName')))]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName')))]"
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('resourceGroupName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-firewall', variables('sharedCoreWorkspaceName')))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', variables('sharedCoreWorkspaceName')))]"
       ]
     },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
-      "name": "[format('{0}-avd', parameters('workspaceName'))]",
-      "resourceGroup": "[parameters('resourceGroupName')]",
+      "name": "[format('{0}-avd', variables('workspaceName'))]",
+      "resourceGroup": "[variables('resourceGroupName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -1110,13 +1124,13 @@
             "value": "[parameters('location')]"
           },
           "workspaceName": {
-            "value": "[parameters('workspaceName')]"
+            "value": "[variables('workspaceName')]"
           },
           "environment": {
             "value": "[parameters('environment')]"
           },
           "tags": {
-            "value": "[parameters('tags')]"
+            "value": "[variables('resourceTags')]"
           },
           "maxAuthorizedUsers": {
             "value": "[parameters('maxAuthorizedUsers')]"
@@ -1368,15 +1382,15 @@
         }
       },
       "dependsOn": [
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('resourceGroupName'))]"
       ]
     },
     {
       "condition": "[parameters('deploySessionHosts')]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
-      "name": "[format('{0}-session-hosts', parameters('workspaceName'))]",
-      "resourceGroup": "[parameters('resourceGroupName')]",
+      "name": "[format('{0}-session-hosts', variables('workspaceName'))]",
+      "resourceGroup": "[variables('resourceGroupName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -1387,19 +1401,19 @@
             "value": "[parameters('location')]"
           },
           "workspaceName": {
-            "value": "[parameters('workspaceName')]"
+            "value": "[variables('workspaceName')]"
           },
           "tags": {
-            "value": "[parameters('tags')]"
+            "value": "[variables('resourceTags')]"
           },
           "hostPoolName": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', parameters('workspaceName'))), '2025-04-01').outputs.hostPoolName.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', variables('workspaceName'))), '2025-04-01').outputs.hostPoolName.value]"
           },
           "vnetName": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.vnetName.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', variables('sharedCoreWorkspaceName'))), '2025-04-01').outputs.vnetName.value]"
           },
           "avdSubnetName": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.avdSubnetName.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', variables('sharedCoreWorkspaceName'))), '2025-04-01').outputs.avdSubnetName.value]"
           },
           "sessionHostCount": {
             "value": "[parameters('sessionHostCount')]"
@@ -1420,10 +1434,10 @@
             "value": "[parameters('avdUserGroupObjectId')]"
           },
           "fslogixStorageAccountName": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', parameters('workspaceName'))), '2025-04-01').outputs.storageAccountName.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', variables('workspaceName'))), '2025-04-01').outputs.storageAccountName.value]"
           },
           "fslogixFileShareName": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', parameters('workspaceName'))), '2025-04-01').outputs.fileShareName.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', variables('workspaceName'))), '2025-04-01').outputs.fileShareName.value]"
           }
         },
         "template": {
@@ -1736,18 +1750,18 @@
         }
       },
       "dependsOn": [
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', parameters('workspaceName')))]",
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', parameters('workspaceName')))]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName')))]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-routing', parameters('workspaceName')))]"
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', variables('workspaceName')))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('resourceGroupName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', variables('workspaceName')))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', variables('sharedCoreWorkspaceName')))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-routing', variables('sharedCoreWorkspaceName')))]"
       ]
     },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
-      "name": "[format('{0}-fslogix-storage', parameters('workspaceName'))]",
-      "resourceGroup": "[parameters('resourceGroupName')]",
+      "name": "[format('{0}-fslogix-storage', variables('workspaceName'))]",
+      "resourceGroup": "[variables('resourceGroupName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -1758,13 +1772,13 @@
             "value": "[parameters('location')]"
           },
           "workspaceName": {
-            "value": "[parameters('workspaceName')]"
+            "value": "[variables('workspaceName')]"
           },
           "environment": {
             "value": "[parameters('environment')]"
           },
           "tags": {
-            "value": "[parameters('tags')]"
+            "value": "[variables('resourceTags')]"
           },
           "storageSku": {
             "value": "Premium_LRS"
@@ -1779,10 +1793,10 @@
             "value": "[parameters('avdUserGroupObjectId')]"
           },
           "vnetId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.vnetId.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', variables('sharedCoreWorkspaceName'))), '2025-04-01').outputs.vnetId.value]"
           },
           "privateEndpointSubnetId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName'))), '2025-04-01').outputs.privateEndpointSubnetId.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', variables('sharedCoreWorkspaceName'))), '2025-04-01').outputs.privateEndpointSubnetId.value]"
           }
         },
         "template": {
@@ -2018,15 +2032,15 @@
         }
       },
       "dependsOn": [
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', parameters('workspaceName')))]"
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('resourceGroupName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-networking', variables('sharedCoreWorkspaceName')))]"
       ]
     },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
-      "name": "[format('{0}-monitoring', parameters('workspaceName'))]",
-      "resourceGroup": "[parameters('resourceGroupName')]",
+      "name": "[format('{0}-monitoring', variables('workspaceName'))]",
+      "resourceGroup": "[variables('resourceGroupName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -2037,7 +2051,7 @@
             "value": "[parameters('location')]"
           },
           "workspaceName": {
-            "value": "[parameters('workspaceName')]"
+            "value": "[variables('workspaceName')]"
           },
           "environment": {
             "value": "[parameters('environment')]"
@@ -2046,10 +2060,10 @@
             "value": "[parameters('tags')]"
           },
           "hostPoolId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', parameters('workspaceName'))), '2025-04-01').outputs.hostPoolId.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', variables('workspaceName'))), '2025-04-01').outputs.hostPoolId.value]"
           },
           "firewallId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-firewall', parameters('workspaceName'))), '2025-04-01').outputs.firewallId.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-firewall', variables('sharedCoreWorkspaceName'))), '2025-04-01').outputs.firewallId.value]"
           },
           "logAnalyticsSku": {
             "value": "PerGB2018"
@@ -2200,24 +2214,24 @@
         }
       },
       "dependsOn": [
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', parameters('workspaceName')))]",
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-firewall', parameters('workspaceName')))]"
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', variables('workspaceName')))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('resourceGroupName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-firewall', variables('sharedCoreWorkspaceName')))]"
       ]
     }
   ],
   "outputs": {
     "hostPoolName": {
       "type": "string",
-      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', parameters('workspaceName'))), '2025-04-01').outputs.hostPoolName.value]"
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-avd', variables('workspaceName'))), '2025-04-01').outputs.hostPoolName.value]"
     },
     "fslogixStorageAccountName": {
       "type": "string",
-      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', parameters('workspaceName'))), '2025-04-01').outputs.storageAccountName.value]"
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', variables('workspaceName'))), '2025-04-01').outputs.storageAccountName.value]"
     },
     "fslogixFileShareName": {
       "type": "string",
-      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', parameters('workspaceName'))), '2025-04-01').outputs.fileShareName.value]"
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-fslogix-storage', variables('workspaceName'))), '2025-04-01').outputs.fileShareName.value]"
     },
     "avdUserGroupObjectId": {
       "type": "string",
@@ -2225,11 +2239,11 @@
     },
     "resourceGroupName": {
       "type": "string",
-      "value": "[parameters('resourceGroupName')]"
+      "value": "[variables('resourceGroupName')]"
     },
     "sessionHostIds": {
       "type": "array",
-      "value": "[if(parameters('deploySessionHosts'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-session-hosts', parameters('workspaceName'))), '2025-04-01').outputs.sessionHostIds.value, createArray())]"
+      "value": "[if(parameters('deploySessionHosts'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupName')), 'Microsoft.Resources/deployments', format('{0}-session-hosts', variables('workspaceName'))), '2025-04-01').outputs.sessionHostIds.value, createArray())]"
     }
   }
 }

@@ -33,6 +33,8 @@ Configure these GitHub Environment variables for `avd-deploy`:
 - `AZURE_CLIENT_ID`: Entra application/client ID configured for GitHub OIDC.
 - `AZURE_TENANT_ID`: Entra tenant ID.
 - `AZURE_SUBSCRIPTION_ID`: deployment subscription ID.
+- The workflow's `phase` choice selects exactly one workspace; `acceptance_reference`
+  records the current Work Order or written client acceptance in resource tags.
 
 Add this GitHub Environment secret:
 
@@ -60,8 +62,14 @@ workflow reads `AVD_ADMIN_PASSWORD` from the protected environment secret and
 converts it to a SecureString in the running process. Never commit the password
 or pass it as a plaintext command-line argument.
 
-The script creates or reuses the named cloud-only access group, adds the supplied
-users without removing existing members, and deploys infrastructure before VMs.
+The script creates or reuses the selected phase's cloud-only access group, adds
+the supplied users without removing existing members, and deploys infrastructure
+before VMs. The five phases are Data Engineering, Prospecting, Sales, Reference
+Data, and Finance. They are mutually exclusive selections; later phases must
+only be selected after their written acceptance criterion is met. The VNet,
+firewall, routing, and Key Vault use the
+shared Data Engineering core names and are updated in place by later phase runs,
+while each phase receives its own resource group, host pool, storage, and users.
 It configures the Azure Files application's admin consent, cloud-group SID tag,
 and private-link identifiers, then deploys and registers the hosts. Registration
 tokens are generated for one day and passed only to protected extension settings.
@@ -125,10 +133,11 @@ weaken these settings automatically.
   `\\<storage-account>.file.core.windows.net\de-fslogix`. Infrastructure compilation
   cannot prove user authentication or profile attachment.
 
-`parameters.bicepparam` reads `AVD_ADMIN_PASSWORD`, `AVD_USER_GROUP_OBJECT_ID`, and
-`AVD_SERVICE_PRINCIPAL_OBJECT_ID`. The deployment script sets and restores these
-process environment variables. VS Code may report missing-variable diagnostics
-outside that process; they are intentional required inputs, not embedded secrets.
+`parameters.bicepparam` reads `AVD_ADMIN_PASSWORD` with an empty local fallback
+and uses all-zero sentinel IDs for editor/build validation. `Scripts/deploy.ps1`
+overrides those IDs with the actual Entra object IDs as non-secret CLI parameters.
+Never deploy directly from `parameters.bicepparam`; use the deployment script or
+GitHub Actions workflow so real IDs and the password are supplied.
 
 If a deleted Key Vault name remains soft-deleted with purge protection, Azure
 can reject recreation. Recover the vault through an approved scripted recovery

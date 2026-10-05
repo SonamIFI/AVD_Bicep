@@ -2,7 +2,10 @@
 param(
     [Parameter(Mandatory)][guid]$SubscriptionId,
     [Parameter(Mandatory)][ValidateCount(1, 10)][guid[]]$UserObjectIds,
-    [string]$UserGroupName = 'sg-20med-avd-dataengineering-uat-users',
+    [Parameter(Mandatory)][ValidateSet('DataEngineering', 'Prospecting', 'Sales', 'ReferenceData', 'Finance')][string]$Phase,
+    [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$AcceptanceReference,
+    [ValidateSet('uat', 'prod')][string]$Environment = 'uat',
+    [string]$UserGroupName,
     [string]$DeploymentLocation = 'centralindia',
     [securestring]$AdminPassword,
     [switch]$ExcludeStorageFromMfaPolicies,
@@ -43,6 +46,9 @@ function Get-GraphCollection {
 
 if ($ExcludeStorageFromMfaPolicies -and $MfaPolicyIds.Count -eq 0) {
     throw 'Specify the exact -MfaPolicyIds approved for storage-app exclusion.'
+}
+if ([string]::IsNullOrWhiteSpace($UserGroupName)) {
+    $UserGroupName = "sg-20med-avd-$($Phase.ToLowerInvariant())-$Environment-users"
 }
 Invoke-AzureCli @('account', 'set', '--subscription', $SubscriptionId.ToString()) | Out-Null
 $account = Invoke-AzureCli @('account', 'show')
@@ -95,18 +101,16 @@ if (-not $AdminPassword) {
     }
 }
 $previousPassword = $env:AVD_ADMIN_PASSWORD
-$previousGroup = $env:AVD_USER_GROUP_OBJECT_ID
-$previousPrincipal = $env:AVD_SERVICE_PRINCIPAL_OBJECT_ID
 $passwordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($AdminPassword)
 try {
     $env:AVD_ADMIN_PASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
-    $env:AVD_USER_GROUP_OBJECT_ID = $group.id
-    $env:AVD_SERVICE_PRINCIPAL_OBJECT_ID = $avdPrincipal.id
     $parametersFile = Join-Path $PSScriptRoot '../parameters.bicepparam'
     Write-Host 'Deploying infrastructure and private FSLogix storage...'
     $outputs = Invoke-AzureCli @(
         'deployment', 'sub', 'create', '--name', '20med-avd-infrastructure',
-        '--location', $DeploymentLocation, '--parameters', $parametersFile, 'deploySessionHosts=false',
+        '--location', $DeploymentLocation, '--parameters', $parametersFile,
+        "activeWorkspace=$Phase", "environment=$Environment", "phaseAcceptanceReference=$AcceptanceReference",
+        "avdUserGroupObjectId=$($group.id)", "avdServicePrincipalObjectId=$($avdPrincipal.id)", 'deploySessionHosts=false',
         '--query', 'properties.outputs'
     )
     $storageName = $outputs.fslogixStorageAccountName.value
@@ -161,7 +165,9 @@ try {
     Write-Host 'Deploying and registering session hosts...'
     $hostOutputs = Invoke-AzureCli @(
         'deployment', 'sub', 'create', '--name', '20med-avd-session-hosts',
-        '--location', $DeploymentLocation, '--parameters', $parametersFile, 'deploySessionHosts=true',
+        '--location', $DeploymentLocation, '--parameters', $parametersFile,
+        "activeWorkspace=$Phase", "environment=$Environment", "phaseAcceptanceReference=$AcceptanceReference",
+        "avdUserGroupObjectId=$($group.id)", "avdServicePrincipalObjectId=$($avdPrincipal.id)", 'deploySessionHosts=true',
         '--query', 'properties.outputs'
     )
     $hostIds = @($hostOutputs.sessionHostIds.value)
@@ -187,7 +193,5 @@ try {
 finally {
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer)
     $env:AVD_ADMIN_PASSWORD = $previousPassword
-    $env:AVD_USER_GROUP_OBJECT_ID = $previousGroup
-    $env:AVD_SERVICE_PRINCIPAL_OBJECT_ID = $previousPrincipal
     $script:graphToken = $null
 }

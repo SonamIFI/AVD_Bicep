@@ -50,9 +50,9 @@ var managementSubnetName = 'snet-management-${toLower(workspaceName)}'
 
 var privateEndpointSubnetName = 'snet-private-endpoint-${toLower(workspaceName)}'
 
-var avdNsgName = 'nsg-avd-${toLower(workspaceName)}'
+var avdNsgName = 'nsg-avd-${toLower(environment)}-${toLower(workspaceName)}'
 
-var managementNsgName = 'nsg-management-${toLower(workspaceName)}'
+var managementNsgName = 'nsg-management-${toLower(environment)}-${toLower(workspaceName)}'
 
 // ------------------------------------------------------------
 // NSG - AVD
